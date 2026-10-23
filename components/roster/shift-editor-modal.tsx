@@ -225,6 +225,13 @@ export function ShiftEditorModal({
               onValueChange={(notifyAtStart) => onSave({ notifyAtStart })}
             />
 
+            <SettingSwitch
+              label="Shift ending reminder"
+              description="Notify 5 minutes before this shift ends."
+              value={shift.notifyAtEnd}
+              onValueChange={(notifyAtEnd) => onSave({ notifyAtEnd })}
+            />
+
             <Text style={styles.label}>Notify before start</Text>
             <View style={styles.optionRow}>
               {NOTIFY_BEFORE_OPTIONS.map((minutes) => (

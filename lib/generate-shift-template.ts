@@ -69,6 +69,7 @@ export function buildShiftFromTemplate({
     enabled: true,
     notifyAtStart: true,
     notifyMinutesBefore: 15,
+    notifyAtEnd: true,
     color: template.color,
   };
 }
@@ -132,6 +133,7 @@ export function buildRotatingAllTemplateShifts(
       enabled: true,
       notifyAtStart: true,
       notifyMinutesBefore: 15,
+      notifyAtEnd: true,
       color: template.color,
     };
   });

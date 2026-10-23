@@ -64,11 +64,14 @@ export function ShiftDateCard({
         <View style={styles.metaRow}>
           <Ionicons name="notifications-outline" size={14} color="#6A756F" />
           <Text style={styles.metaText}>
-            {shift.notifyAtStart
-              ? shift.notifyMinutesBefore === 0
-                ? 'Alert at start'
-                : `${shift.notifyMinutesBefore}m before`
-              : 'No alert'}
+            {[
+              shift.notifyAtStart
+                ? shift.notifyMinutesBefore === 0
+                  ? 'At start'
+                  : `${shift.notifyMinutesBefore}m before`
+                : null,
+              shift.notifyAtEnd ? '5m before end' : null,
+            ].filter(Boolean).join(' · ') || 'No alert'}
           </Text>
         </View>
         <Pressable accessibilityRole="button" onPress={onEdit} style={styles.editButton}>

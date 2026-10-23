@@ -17,6 +17,7 @@ export type RosterShift = {
   enabled: boolean;
   notifyAtStart: boolean;
   notifyMinutesBefore: number;
+  notifyAtEnd: boolean;
   color: string;
 };
 

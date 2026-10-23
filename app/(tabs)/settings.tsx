@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import { useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SettingSwitch } from '@/components/afk/setting-switch';
@@ -22,6 +22,7 @@ import {
   shareRosterBackupText,
 } from '@/lib/roster-backup-share';
 import { Fonts } from '@/constants/theme';
+import { compareAppVersions, getLatestAppRelease, type LatestAppRelease } from '@/lib/app-updates';
 
 const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -32,6 +33,38 @@ export default function SettingsScreen() {
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [permissionHint, setPermissionHint] = useState<string | null>(null);
   const [restoreModalVisible, setRestoreModalVisible] = useState(false);
+  const [releaseCheck, setReleaseCheck] = useState<
+    | { status: 'checking' }
+    | { status: 'up-to-date' }
+    | { status: 'available'; release: LatestAppRelease }
+    | { status: 'error' }
+    | { status: 'unsupported' }
+  >({ status: 'checking' });
+
+  const checkForAppUpdate = useCallback(async () => {
+    if (Platform.OS !== 'android') {
+      setReleaseCheck({ status: 'unsupported' });
+      return;
+    }
+
+    setReleaseCheck({ status: 'checking' });
+    try {
+      const release = await getLatestAppRelease();
+      const comparison = compareAppVersions(release.version, appVersion);
+      if (comparison === null) {
+        throw new Error('Could not compare app versions.');
+      }
+      setReleaseCheck(comparison > 0 ? { status: 'available', release } : { status: 'up-to-date' });
+    } catch {
+      setReleaseCheck({ status: 'error' });
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void checkForAppUpdate();
+    }, [checkForAppUpdate])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -143,6 +176,27 @@ export default function SettingsScreen() {
     }
   }
 
+  function openAppUpdate(release: LatestAppRelease) {
+    const targetUrl = release.apkUrl ?? release.pageUrl;
+    Alert.alert(
+      'Install Shiftwise update',
+      release.apkUrl
+        ? `Download version ${release.version}. When the download finishes, open the APK and follow Android’s install prompts. Android may ask you to allow installs from your browser.`
+        : `Version ${release.version} is published, but its APK download was not found. Open the release page to check the available files.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: release.apkUrl ? 'Download APK' : 'Open release',
+          onPress: () => {
+            void Linking.openURL(targetUrl).catch(() =>
+              Alert.alert('Could not open update', 'Check your internet connection and try again.')
+            );
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="light" />
@@ -223,6 +277,42 @@ export default function SettingsScreen() {
               <Text style={styles.secondaryActionText}>Open device settings</Text>
             </Pressable>
             {permissionHint ? <Text style={styles.hint}>{permissionHint}</Text> : null}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>App updates</Text>
+            {releaseCheck.status === 'checking' ? (
+              <View style={styles.updateStatusRow}>
+                <ActivityIndicator color="#3D927B" />
+                <Text style={styles.hint}>Checking for the latest release…</Text>
+              </View>
+            ) : releaseCheck.status === 'available' ? (
+              <>
+                <Text style={styles.hint}>Version {releaseCheck.release.version} is ready to install.</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => openAppUpdate(releaseCheck.release)}
+                  style={styles.primaryAction}>
+                  <Ionicons name="download-outline" size={18} color="#F5F2E9" />
+                  <Text style={styles.primaryActionText}>Update Available · v{releaseCheck.release.version}</Text>
+                </Pressable>
+              </>
+            ) : releaseCheck.status === 'up-to-date' ? (
+              <Text style={styles.hint}>Currently up to date · Version {appVersion} is the latest release.</Text>
+            ) : releaseCheck.status === 'unsupported' ? (
+              <Text style={styles.hint}>GitHub publishes Android APK updates. Updates for this platform follow its installed distribution.</Text>
+            ) : (
+              <Text style={styles.hint}>Couldn’t check for updates. Check your connection and try again.</Text>
+            )}
+            {releaseCheck.status !== 'checking' && releaseCheck.status !== 'unsupported' ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void checkForAppUpdate()}
+                style={styles.secondaryAction}>
+                <Ionicons name="refresh-circle-outline" size={18} color="#102A27" />
+                <Text style={styles.secondaryActionText}>Check for updates</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.aboutCard}>
@@ -316,6 +406,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginTop: 8,
+  },
+  updateStatusRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
   },
   sectionHint: {
     color: '#6A756F',

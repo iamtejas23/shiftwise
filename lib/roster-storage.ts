@@ -102,6 +102,7 @@ function normalizeShift(shift: Partial<RosterShift>, index: number): RosterShift
       typeof shift.notifyMinutesBefore === 'number' && shift.notifyMinutesBefore >= 0
         ? Math.min(120, Math.floor(shift.notifyMinutesBefore))
         : fallback.notifyMinutesBefore,
+    notifyAtEnd: typeof shift.notifyAtEnd === 'boolean' ? shift.notifyAtEnd : true,
     color: typeof shift.color === 'string' ? shift.color : preset.color,
     weekdays: normalizeWeekdays(
       Array.isArray(shift.weekdays) ? shift.weekdays.filter(isWeekdayValue) : undefined

@@ -44,6 +44,7 @@ export function createDefaultRosterShifts(): RosterShift[] {
       enabled: true,
       notifyAtStart: true,
       notifyMinutesBefore: 15,
+      notifyAtEnd: true,
       color: SHIFT_PALETTE[1],
     },
     {
@@ -60,6 +61,7 @@ export function createDefaultRosterShifts(): RosterShift[] {
       enabled: true,
       notifyAtStart: true,
       notifyMinutesBefore: 15,
+      notifyAtEnd: true,
       color: SHIFT_PALETTE[3],
     },
     {
@@ -76,6 +78,7 @@ export function createDefaultRosterShifts(): RosterShift[] {
       enabled: false,
       notifyAtStart: true,
       notifyMinutesBefore: 30,
+      notifyAtEnd: true,
       color: SHIFT_PALETTE[2],
     },
   ];

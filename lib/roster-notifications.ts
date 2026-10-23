@@ -6,7 +6,7 @@ import {
 } from '@/constants/roster';
 import { shiftDateTimeMs } from '@/lib/roster-dates';
 import { eachShiftOccurrenceDateKeys } from '@/lib/roster-weekdays';
-import { eachDateKeyInRange } from '@/lib/roster-shift-dates';
+import { addDaysToDateKey, eachDateKeyInRange } from '@/lib/roster-shift-dates';
 import { resolveShiftEmoji } from '@/lib/shift-style';
 import { getExpoNotificationsModule, supportsNativeExpoNotifications } from '@/lib/expo-notifications-client';
 import { requestAfkNotificationPermissionsAsync } from '@/lib/afk-notifications';
@@ -24,7 +24,7 @@ async function ensureRosterChannelAsync() {
 
   await Notifications.setNotificationChannelAsync(ROSTER_CHANNEL_ID, {
     name: 'Shift roster',
-    description: 'Shift-start and rostered day-off reminders',
+    description: 'Shift start, shift end, and rostered day-off reminders',
     importance: Notifications.AndroidImportance.HIGH,
     enableVibrate: true,
     vibrationPattern: [0, 220, 120, 220],
@@ -82,44 +82,70 @@ export async function syncRosterNotificationsAsync(
   );
 
   for (const shift of shifts) {
-    if (!shift.enabled || !shift.notifyAtStart) {
+    if (!shift.enabled) {
       continue;
     }
 
     const occurrenceDates = eachShiftOccurrenceDateKeys(shift);
-    const leadCopy =
-      shift.notifyMinutesBefore === 0
-        ? 'starts now'
-        : `starts in ${shift.notifyMinutesBefore} min`;
-
     for (const occurrenceDate of occurrenceDates) {
-      const triggerMs = shiftDateTimeMs(
-        occurrenceDate,
-        shift.startTime,
-        shift.notifyMinutesBefore
-      );
-      if (triggerMs === null || triggerMs <= now) {
-        continue;
+      if (shift.notifyAtStart) {
+        const triggerMs = shiftDateTimeMs(
+          occurrenceDate,
+          shift.startTime,
+          shift.notifyMinutesBefore
+        );
+        if (triggerMs !== null && triggerMs > now) {
+          const leadCopy =
+            shift.notifyMinutesBefore === 0
+              ? 'starts now'
+              : `starts in ${shift.notifyMinutesBefore} min`;
+          await Notifications.scheduleNotificationAsync({
+            identifier: `${ROSTER_NOTIFICATION_PREFIX}${shift.id}-${occurrenceDate}`,
+            content: {
+              title: `${resolveShiftEmoji(shift)} ${shift.name}`,
+              body: `${occurrenceDate} · ${shift.startTime} – ${shift.endTime} · ${leadCopy}`,
+              priority: Notifications.AndroidNotificationPriority.HIGH,
+              data: {
+                shiftId: shift.id,
+                source: ROSTER_NOTIFICATION_SOURCE,
+              },
+              ...(Platform.OS === 'android' ? { channelId: ROSTER_CHANNEL_ID } : {}),
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.DATE,
+              date: new Date(triggerMs),
+            },
+          });
+        }
       }
 
-      const identifier = `${ROSTER_NOTIFICATION_PREFIX}${shift.id}-${occurrenceDate}`;
-      await Notifications.scheduleNotificationAsync({
-        identifier,
-        content: {
-          title: `${resolveShiftEmoji(shift)} ${shift.name}`,
-          body: `${occurrenceDate} · ${shift.startTime} – ${shift.endTime} · ${leadCopy}`,
-          priority: Notifications.AndroidNotificationPriority.HIGH,
-          data: {
-            shiftId: shift.id,
-            source: ROSTER_NOTIFICATION_SOURCE,
-          },
-          ...(Platform.OS === 'android' ? { channelId: ROSTER_CHANNEL_ID } : {}),
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: new Date(triggerMs),
-        },
-      });
+      if (shift.notifyAtEnd) {
+        // A shift ending at or before its start time finishes on the next day.
+        const endDate = shift.endTime <= shift.startTime
+          ? addDaysToDateKey(occurrenceDate, 1)
+          : occurrenceDate;
+        const triggerMs = shiftDateTimeMs(endDate, shift.endTime, 5);
+        if (triggerMs !== null && triggerMs > now) {
+          await Notifications.scheduleNotificationAsync({
+            identifier: `${ROSTER_NOTIFICATION_PREFIX}${shift.id}-${occurrenceDate}-end`,
+            content: {
+              title: `${resolveShiftEmoji(shift)} ${shift.name} ending soon`,
+              body: `Your shift ends at ${shift.endTime}. It’s almost log-off time!`,
+              priority: Notifications.AndroidNotificationPriority.HIGH,
+              data: {
+                shiftId: shift.id,
+                source: ROSTER_NOTIFICATION_SOURCE,
+                type: 'shift-end',
+              },
+              ...(Platform.OS === 'android' ? { channelId: ROSTER_CHANNEL_ID } : {}),
+            },
+            trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.DATE,
+              date: new Date(triggerMs),
+            },
+          });
+        }
+      }
     }
   }
 
