@@ -1,4 +1,5 @@
 import { AppIcon as Ionicons } from '@/components/ui/app-icon';
+import { FestivalIcon } from '@/components/holidays/festival-icon';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { WEEKDAY_HEADERS } from '@/constants/roster';
@@ -115,7 +116,7 @@ export function MonthCalendar({
                   ) : null}
                   {holidayNames.length > 0 ? (
                     holidayIcons[0] ? (
-                      <Text style={styles.holidayEmoji}>{holidayIcons[0]}</Text>
+                      <FestivalIcon icon={holidayIcons[0]} size={14} />
                     ) : (
                       <View style={styles.holidayDot} />
                     )
@@ -228,10 +229,6 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     height: 5,
     width: 5,
-  },
-  holidayEmoji: {
-    fontSize: 11,
-    lineHeight: 14,
   },
   dotSpacer: {
     height: 14,

@@ -4,6 +4,7 @@ import { useNavigation } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import {
+  AppState,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -28,10 +29,13 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PresetButton } from '@/components/afk/preset-button';
+import { FestivalIcon } from '@/components/holidays/festival-icon';
 import { DURATION_STEP_MINUTES, PRESET_DURATIONS } from '@/constants/afk';
 import { Fonts } from '@/constants/theme';
 import { useAfkTimer } from '@/hooks/use-afk-timer';
+import { useHolidays } from '@/hooks/use-holidays';
 import { TAB_BAR_HIDDEN_STYLE, useTabBarMetrics } from '@/hooks/use-tab-bar-metrics';
+import { formatDateKey } from '@/lib/roster-dates';
 
 function LoadingDot({ delay }: { delay: number }) {
   const progress = useSharedValue(0);
@@ -217,12 +221,29 @@ const openingLogo = require('../../assets/images/splash-icon.png');
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function HomeScreen() {
   const timer = useAfkTimer();
+  const holidayStore = useHolidays();
   const { width: windowWidth } = useWindowDimensions();
   const navigation = useNavigation();
   const { resolvedTabBarStyle, scrollBottomPadding } = useTabBarMetrics();
   const [draftDuration, setDraftDuration] = useState(() => String(timer.durationMinutes));
   const [openingDelayComplete, setOpeningDelayComplete] = useState(false);
+  const [todayDateKey, setTodayDateKey] = useState(() => formatDateKey(new Date()));
   const showOpening = !timer.isReady || !openingDelayComplete;
+  const todaysHolidays = (holidayStore.holidays ?? []).filter(
+    (holiday) => holiday.date === todayDateKey
+  );
+
+  useEffect(() => {
+    const updateToday = () => setTodayDateKey(formatDateKey(new Date()));
+    const interval = setInterval(updateToday, 30_000);
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') updateToday();
+    });
+    return () => {
+      clearInterval(interval);
+      appStateSubscription.remove();
+    };
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -290,6 +311,34 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.title}>Stay AFK without{'\n'}losing the thread.</Text>
           </View>
+
+          {todaysHolidays.length > 0 ? (
+            <View
+              accessibilityLabel={`${todaysHolidays.map((holiday) => holiday.name).join(', ')} holiday today`}
+              style={styles.festivalCard}>
+              <View style={styles.festivalCopy}>
+                <View style={styles.festivalTodayPill}>
+                  <Ionicons name="sparkles" size={12} color="#FFF8ED" />
+                  <Text style={styles.festivalTodayText}>TODAY’S FESTIVAL</Text>
+                </View>
+                <Text numberOfLines={2} style={styles.festivalName}>
+                  {todaysHolidays[0].name}
+                </Text>
+                <Text numberOfLines={1} style={styles.festivalSubtitle}>
+                  {todaysHolidays.length > 1
+                    ? `+ ${todaysHolidays.length - 1} more celebration${todaysHolidays.length === 2 ? '' : 's'}`
+                    : 'Marked on your roster'}
+                </Text>
+              </View>
+              <View style={styles.festivalArtFrame}>
+                {todaysHolidays[0].icon ? (
+                  <FestivalIcon icon={todaysHolidays[0].icon} size={76} />
+                ) : (
+                  <Ionicons name="calendar" size={42} color="#B94E2B" />
+                )}
+              </View>
+            </View>
+          ) : null}
 
           {/* ── Timer Ring Card ── */}
           <View style={styles.timerCard}>
@@ -575,6 +624,48 @@ const styles = StyleSheet.create({
 
   // Header
   header: { gap: 8, marginTop: 10 },
+  festivalCard: {
+    alignItems: 'center',
+    backgroundColor: '#FFF1DE',
+    borderColor: 'rgba(241, 120, 85, 0.45)',
+    borderRadius: 22,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 124,
+    overflow: 'hidden',
+    paddingHorizontal: 18,
+    paddingVertical: 15,
+  },
+  festivalCopy: { flex: 1, gap: 6, minWidth: 0, paddingRight: 8 },
+  festivalTodayPill: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#D65C39',
+    borderRadius: 99,
+    flexDirection: 'row',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  festivalTodayText: {
+    color: '#FFF8ED',
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    letterSpacing: 0.7,
+  },
+  festivalName: { color: '#102A27', fontFamily: Fonts.rounded, fontSize: 22, lineHeight: 27 },
+  festivalSubtitle: { color: '#6A756F', fontSize: 13 },
+  festivalArtFrame: {
+    alignItems: 'center',
+    backgroundColor: '#F8D9B1',
+    borderColor: 'rgba(214, 92, 57, 0.16)',
+    borderRadius: 24,
+    borderWidth: 1,
+    height: 94,
+    justifyContent: 'center',
+    width: 94,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',

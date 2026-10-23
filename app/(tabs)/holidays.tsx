@@ -1,5 +1,6 @@
 import { AppIcon as Ionicons } from '@/components/ui/app-icon';
 import { MonthCalendar } from '@/components/roster/month-calendar';
+import { FestivalIcon } from '@/components/holidays/festival-icon';
 import { ScreenBackground } from '@/components/ui/screen-background';
 import { AppColors } from '@/constants/app-ui';
 import { Fonts } from '@/constants/theme';
@@ -11,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,22 +22,24 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const FESTIVAL_ICONS = [
+const HOLIDAY_PRESETS = [
   { key: 'none', label: 'No icon', icon: '' },
-  { key: 'ganesh', label: 'Ganesh Chaturthi', icon: '🐘' },
-  { key: 'diwali', label: 'Diwali', icon: '🪔' },
-  { key: 'holi', label: 'Holi', icon: '🎨' },
-  { key: 'christmas', label: 'Christmas', icon: '🎄' },
-  { key: 'independence', label: 'Independence Day', icon: '🇮🇳' },
-  { key: 'republic', label: 'Republic Day', icon: '🏛️' },
-  { key: 'raksha', label: 'Raksha Bandhan', icon: '🧵' },
-  { key: 'eid', label: 'Eid', icon: '🌙' },
-  { key: 'navratri', label: 'Navratri', icon: '🪷' },
-  { key: 'dussehra', label: 'Dussehra', icon: '🏹' },
-  { key: 'onam', label: 'Onam', icon: '🌼' },
-  { key: 'pongal', label: 'Pongal', icon: '🍚' },
-  { key: 'janmashtami', label: 'Janmashtami', icon: '🦚' },
-  { key: 'baisakhi', label: 'Baisakhi', icon: '🌾' },
+  { key: 'ganesh', label: 'Ganesh Chaturthi', icon: '🐘', name: 'Ganesh Chaturthi' },
+  { key: 'diwali', label: 'Diwali', icon: '🪔', name: 'Diwali' },
+  { key: 'holi', label: 'Holi', icon: '🎨', name: 'Holi' },
+  { key: 'christmas', label: 'Christmas', icon: '🎄', name: 'Christmas' },
+  { key: 'independence', label: 'Independence Day', icon: '🇮🇳', name: 'Independence Day' },
+  { key: 'republic', label: 'Republic Day', icon: '☸️', name: 'Republic Day' },
+  { key: 'raksha', label: 'Raksha Bandhan', icon: '🧵', name: 'Raksha Bandhan' },
+  { key: 'eid', label: 'Eid', icon: '🌙', name: 'Eid' },
+  { key: 'navratri', label: 'Navratri', icon: '🪷', name: 'Navratri' },
+  { key: 'dussehra', label: 'Dussehra', icon: '🏹', name: 'Dussehra' },
+  { key: 'onam', label: 'Onam', icon: '🌼', name: 'Onam' },
+  { key: 'pongal', label: 'Pongal', icon: '🍚', name: 'Pongal' },
+  { key: 'janmashtami', label: 'Janmashtami', icon: '🦚', name: 'Janmashtami' },
+  { key: 'baisakhi', label: 'Baisakhi', icon: '🌾', name: 'Baisakhi' },
+  { key: 'new-year', label: 'New Year', icon: '🎆', name: 'New Year' },
+  { key: 'family', label: 'Family day', icon: '🏠', name: 'Family day' },
   { key: 'custom', label: 'Custom', icon: '' },
 ] as const;
 
@@ -51,6 +55,7 @@ export default function HolidaysScreen() {
   const [customIcon, setCustomIcon] = useState('✨');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const yearHolidays = useMemo(
     () =>
@@ -113,6 +118,7 @@ export default function HolidaysScreen() {
   }
 
   async function save() {
+    if (isSaving) return;
     const cleanName = name.trim();
     if (!cleanName) {
       setFormError('Add a name for this holiday.');
@@ -143,13 +149,18 @@ export default function HolidaysScreen() {
           ? undefined
           : festivalKey === 'custom'
             ? customIcon.trim()
-            : FESTIVAL_ICONS.find((item) => item.key === festivalKey)?.icon,
+            : HOLIDAY_PRESETS.find((item) => item.key === festivalKey)?.icon,
     };
-    if (await store.saveHoliday(holiday)) {
-      setName('');
-      setFestivalKey('none');
-      setEditingId(null);
-      setFormError(null);
+    setIsSaving(true);
+    try {
+      if (await store.saveHoliday(holiday)) {
+        setName('');
+        setFestivalKey('none');
+        setEditingId(null);
+        setFormError(null);
+      }
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -157,7 +168,7 @@ export default function HolidaysScreen() {
     setEditingId(holiday.id);
     setName(holiday.name);
     const savedIcon = holiday.icon ?? '';
-    const matchingFestival = FESTIVAL_ICONS.find(
+    const matchingFestival = HOLIDAY_PRESETS.find(
       (item) => item.key !== 'custom' && item.key !== 'none' && item.icon === savedIcon
     );
     setFestivalKey(matchingFestival?.key ?? (savedIcon ? 'custom' : 'none'));
@@ -253,12 +264,13 @@ export default function HolidaysScreen() {
                   style={styles.input}
                   value={name}
                 />
-                <Text style={styles.inputLabel}>Festival icon (optional)</Text>
+                <Text style={styles.inputLabel}>Quick add festival</Text>
+                <Text style={styles.presetHint}>Tap a festival to fill in its name and artwork.</Text>
                 <View
                   accessibilityLabel="Festival icon options"
                   accessibilityRole="radiogroup"
                   style={styles.iconGrid}>
-                  {FESTIVAL_ICONS.map((item) => {
+                  {HOLIDAY_PRESETS.map((item) => {
                     const selected = festivalKey === item.key;
                     return (
                       <Pressable
@@ -267,7 +279,11 @@ export default function HolidaysScreen() {
                         accessibilityLabel={item.key === 'custom' ? 'Custom festive icon' : item.label}
                         accessibilityState={{ checked: selected }}
                         aria-checked={selected}
-                        onPress={() => setFestivalKey(item.key)}
+                        onPress={() => {
+                          setFestivalKey(item.key);
+                          if ('name' in item) setName(item.name);
+                          setFormError(null);
+                        }}
                         style={[styles.iconOption, selected && styles.iconOptionSelected]}>
                         {item.key === 'custom' ? (
                           <Ionicons
@@ -276,7 +292,7 @@ export default function HolidaysScreen() {
                             color={selected ? AppColors.cream : '#52645B'}
                           />
                         ) : item.icon ? (
-                          <Text style={styles.iconOptionEmoji}>{item.icon}</Text>
+                          <FestivalIcon icon={item.icon} size={30} />
                         ) : (
                           <Ionicons name="close-circle-outline" size={17} color="#52645B" />
                         )}
@@ -291,7 +307,7 @@ export default function HolidaysScreen() {
                 </View>
                 {festivalKey === 'custom' ? (
                   <View style={styles.customIconRow}>
-                    <Text style={styles.customIconPreview}>{customIcon || '✨'}</Text>
+                    <FestivalIcon icon={customIcon || '✨'} size={26} />
                     <TextInput
                       accessibilityLabel="Custom festive emoji or symbol"
                       autoCapitalize="none"
@@ -325,10 +341,18 @@ export default function HolidaysScreen() {
                   ) : null}
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityState={{ disabled: isSaving }}
+                    disabled={isSaving}
                     onPress={() => void save()}
-                    style={styles.saveButton}>
-                    <Ionicons name={editingId ? 'checkmark' : 'add'} size={19} color={AppColors.cream} />
-                    <Text style={styles.saveText}>{editingId ? 'Save changes' : 'Add holiday'}</Text>
+                    style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}>
+                    {isSaving ? (
+                      <ActivityIndicator color={AppColors.cream} />
+                    ) : (
+                      <Ionicons name={editingId ? 'checkmark' : 'add'} size={19} color={AppColors.cream} />
+                    )}
+                    <Text style={styles.saveText}>
+                      {isSaving ? 'Saving…' : editingId ? 'Save changes' : 'Add holiday'}
+                    </Text>
                   </Pressable>
                 </View>
               </View>
@@ -347,7 +371,7 @@ export default function HolidaysScreen() {
                       <View key={holiday.id} style={styles.holidayRow}>
                         <View style={styles.holidayIcon}>
                           {holiday.icon ? (
-                            <Text style={styles.holidayIconEmoji}>{holiday.icon}</Text>
+                            <FestivalIcon icon={holiday.icon} size={25} />
                           ) : (
                             <Ionicons name="sunny" size={19} color="#B94E2B" />
                           )}
@@ -363,7 +387,12 @@ export default function HolidaysScreen() {
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel={`Remove ${holiday.name}`}
-                          onPress={() => void store.removeHoliday(holiday.id)}
+                          onPress={() =>
+                            Alert.alert('Remove holiday?', `Remove ${holiday.name} from your calendar?`, [
+                              { text: 'Keep', style: 'cancel' },
+                              { text: 'Remove', style: 'destructive', onPress: () => void store.removeHoliday(holiday.id) },
+                            ])
+                          }
                           style={styles.deleteButton}>
                           <Ionicons name="trash-outline" size={19} color="#7D3C22" />
                         </Pressable>
@@ -430,27 +459,26 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: 13,
   },
-  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  presetHint: { color: '#78867F', fontSize: 12, lineHeight: 17 },
+  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   iconOption: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderColor: '#D6E1DB',
     borderRadius: 12,
     borderWidth: 1,
-    flexBasis: '48%',
+    flexBasis: '30%',
     flexDirection: 'row',
     flexGrow: 1,
     gap: 7,
-    minHeight: 42,
-    paddingHorizontal: 9,
+    minHeight: 52,
+    paddingHorizontal: 7,
     paddingVertical: 6,
   },
   iconOptionSelected: { backgroundColor: AppColors.canvas, borderColor: AppColors.canvas },
-  iconOptionEmoji: { fontSize: 17, textAlign: 'center', width: 20 },
-  iconOptionLabel: { color: '#43564C', flex: 1, fontSize: 12, lineHeight: 15 },
+  iconOptionLabel: { color: '#43564C', flex: 1, fontSize: 11, lineHeight: 14 },
   iconOptionLabelSelected: { color: AppColors.cream, fontFamily: Fonts.rounded },
   customIconRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
-  customIconPreview: { fontSize: 24, minWidth: 34, textAlign: 'center' },
   customIconInput: { flex: 1, minWidth: 0 },
   error: { color: '#9E3929', fontSize: 13, lineHeight: 18 },
   formActions: { alignItems: 'center', flexDirection: 'row', gap: 9, justifyContent: 'flex-end' },
@@ -467,6 +495,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   saveText: { color: AppColors.cream, fontFamily: Fonts.rounded, fontSize: 15 },
+  saveButtonDisabled: { opacity: 0.7 },
   listSection: { gap: 11 },
   sectionTitle: { color: AppColors.cream, fontFamily: Fonts.rounded, fontSize: 21 },
   emptyCard: {

@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MonthCalendar } from '@/components/roster/month-calendar';
+import { FestivalIcon } from '@/components/holidays/festival-icon';
 import { ShiftDateCard } from '@/components/roster/shift-date-card';
 import { ShiftEditorModal } from '@/components/roster/shift-editor-modal';
 import { RosterBackupModal } from '@/components/roster/roster-backup-modal';
@@ -238,7 +239,7 @@ export default function RosterScreen() {
               .map((holiday) => (
               <View key={holiday.id} style={styles.holidayBanner}>
                 {holiday.icon ? (
-                  <Text style={styles.holidayBannerIcon}>{holiday.icon}</Text>
+                  <FestivalIcon icon={holiday.icon} size={20} />
                 ) : (
                   <Ionicons name="sunny" size={18} color="#B94E2B" />
                 )}
@@ -408,9 +409,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.rounded,
     fontSize: 15,
-  },
-  holidayBannerIcon: {
-    fontSize: 18,
   },
   holidayLabel: {
     color: AppColors.accent,
